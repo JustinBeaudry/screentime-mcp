@@ -1,0 +1,6 @@
+# screentime-mcp .gitignore
+
+.task
+.DS_Store
+bin/
+dist/

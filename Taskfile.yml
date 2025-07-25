@@ -1,0 +1,50 @@
+version: '3'
+
+tasks:
+  default:
+    desc: 'Default task is to "build"'
+    deps:
+      - build
+
+  list:
+    desc: 'Lists available tasks'
+    cmds:
+      - task --list-all
+
+  tidy:
+    desc: 'Tidy all'
+    cmds:
+      - go mod tidy
+    sources:
+      - "*.go"
+      - "data/**/**/*.go"
+      - "internal/**/*.go"
+      - go.mod
+      - go.sum
+
+  build:
+    desc: 'Build the screentime-mcp service'
+    deps: [tidy]
+    cmds:
+      - go build -o bin/screentime-mcp
+    generates:
+      - bin/screentime-mcp
+    sources:
+      - "*.go"
+      - "internal/**/*.go"
+      - "internal/**/*.sql"
+      - "internal/**/*.txt"
+      - go.mod
+      - go.sum
+
+  clean:
+    desc: 'Clean all build products'
+    cmds:
+      - rm -f bin/screentime-mcp
+
+  stdio-schema:
+    desc: 'Extracts the schema from the stdio server'
+    deps: [build]
+    cmds:
+      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null
+      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null

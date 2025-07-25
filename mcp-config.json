@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+      "screentime": {
+        "command": "./bin/screentime-mcp",
+        "args": [
+        ]
+      }
+    }
+  }
+  
