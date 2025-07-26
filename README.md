@@ -108,6 +108,7 @@ Building is performed with [task](https://taskfile.dev/):
 $ task
 task: [build] go build -o screentime-mcp main.go
 ```
+
 ----
 
 ## Contribution and Conduct
@@ -118,13 +119,15 @@ Either way, obey our [Code of Conduct](./CODE_OF_CONDUCT.md).  Be shady, but don
 
 ## Metadata
 
-I was inspired to create this after reading a [HackerNews comment](https://news.ycombinator.com/item?id=44684966) in a thread about an [Apple Health MCP Server](https://github.com/neiltron/apple-health-mcp).   A high school researcher introduced me to the available ScreenTime sqlite data, as he used it in his attention/performance-tracking project.   As I note on that thread]:
+I was inspired to create this after reading a [HackerNews comment](https://news.ycombinator.com/item?id=44684966) in a thread about an [Apple Health MCP Server](https://github.com/neiltron/apple-health-mcp).   A high school researcher introduced me to the available ScreenTime sqlite data, as he used it in his attention/performance-tracking project.   As I note [on that thread](https://news.ycombinator.com/item?id=44689345):
 ```
 I’ve found good value in making purpose-build MCP servers like that with the general model: Data<>DuckDB<>MCP<>LLM With verbose description for the LLM of an “sql” tool endpoint for it to use to explore.
 ```
 
-## Credits and License
+I have since been using Claude to help improve the raw tool.  This involves improving the [Tool Description](./internal/mcp/screentime_sql.tooldesc.md) and the pre-flight [SQL View Creation](./internal/db/duckdb_up.sql).  I ask Claude to do some work with the tool, look at the problems it had with it (e.g. DuckDB dialect issues, timestamp conversion) and create changes.   Since it knows the view and the tool description, it can do much of the heavy lifting itself, with a human guiding it along (mostly as a piece of meat restarting Claude Desktop).
 
+
+## Credits and License
 
 Copyright (c) 2025 Neomantra Corp.  Authored by Evan Wies for [AgentDank](https://github.com/AgentDank), based on the [`dank-mcp`](https://github.com/agentdank/dank-mcp) codebase.
 
