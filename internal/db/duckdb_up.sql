@@ -370,3 +370,164 @@ SELECT
 FROM v_app_usage
 WHERE start_time >= CURRENT_TIMESTAMP + TO_HOURS(-24)
 ORDER BY start_time DESC;
+
+-- ============================================
+-- TEMPORAL ANALYSIS VIEWS
+-- ============================================
+
+-- View to find which app was active at any given time
+-- This helps correlate web browsing with active applications
+CREATE OR REPLACE VIEW v_app_timeline AS
+SELECT 
+    app_bundle_id,
+    start_time,
+    end_time,
+    usage_date,
+    duration_seconds,
+    -- Add epoch timestamps for easier range queries
+    DATEPART('epoch', start_time) as start_epoch,
+    DATEPART('epoch', end_time) as end_epoch
+FROM v_app_usage
+WHERE duration_seconds > 0;
+
+-- View to track app-to-app transitions with timing
+CREATE OR REPLACE VIEW v_app_transitions AS
+WITH ordered_apps AS (
+    SELECT 
+        app_bundle_id,
+        start_time,
+        end_time,
+        LAG(app_bundle_id) OVER (ORDER BY start_time) as prev_app,
+        LAG(end_time) OVER (ORDER BY start_time) as prev_end_time,
+        LEAD(app_bundle_id) OVER (ORDER BY start_time) as next_app,
+        LEAD(start_time) OVER (ORDER BY start_time) as next_start_time
+    FROM v_app_usage
+    WHERE duration_seconds IS NOT NULL
+)
+SELECT 
+    prev_app as from_app,
+    app_bundle_id as to_app,
+    DATEPART('epoch', start_time - prev_end_time) as gap_seconds,
+    CASE 
+        WHEN DATEPART('epoch', start_time - prev_end_time) < 1 THEN 'instant'
+        WHEN DATEPART('epoch', start_time - prev_end_time) < 5 THEN 'immediate'
+        WHEN DATEPART('epoch', start_time - prev_end_time) < 60 THEN 'quick'
+        WHEN DATEPART('epoch', start_time - prev_end_time) < 300 THEN 'delayed'
+        ELSE 'separate_session'
+    END as transition_speed,
+    start_time as transition_time,
+    CAST(start_time AS DATE) as transition_date
+FROM ordered_apps
+WHERE prev_app IS NOT NULL;
+
+-- View for correlating web visits with the active app at that time
+CREATE OR REPLACE VIEW v_web_usage_with_active_app AS
+SELECT 
+    w.domain,
+    w.url,
+    w.start_time as web_start_time,
+    w.duration_seconds as web_duration_seconds,
+    w.usage_date,
+    -- Find the app that was active when this web visit started
+    (SELECT app_bundle_id 
+     FROM v_app_timeline a 
+     WHERE a.usage_date = w.usage_date
+       AND w.start_time >= a.start_time 
+       AND w.start_time < a.end_time
+     ORDER BY a.start_time DESC
+     LIMIT 1) as active_app_during_visit
+FROM v_web_usage w;
+
+-- ============================================
+-- ANALYSIS HELPER VIEWS
+-- ============================================
+
+-- Simplified view for app-to-Safari transitions
+CREATE OR REPLACE VIEW v_safari_transitions AS
+SELECT 
+    from_app,
+    transition_speed,
+    gap_seconds,
+    transition_time,
+    transition_date
+FROM v_app_transitions
+WHERE to_app = 'com.apple.Safari'
+  AND from_app != 'com.apple.Safari';
+
+-- View showing domains visited after specific app transitions
+CREATE OR REPLACE VIEW v_post_transition_web_activity AS
+SELECT 
+    t.from_app,
+    t.to_app,
+    t.transition_time,
+    w.domain,
+    w.start_time as web_start_time,
+    DATEPART('epoch', w.start_time - t.transition_time) as seconds_after_transition
+FROM v_app_transitions t
+JOIN v_web_usage w 
+  ON CAST(t.transition_time AS DATE) = w.usage_date
+  AND w.start_time >= t.transition_time
+  AND w.start_time < t.transition_time + TO_SECONDS(300.0) -- Within 5 minutes
+WHERE t.to_app = 'com.apple.Safari';
+
+-- ============================================
+-- AGGREGATED ANALYSIS VIEWS
+-- ============================================
+
+-- Summary of web browsing by active application
+CREATE OR REPLACE VIEW v_web_browsing_by_app_summary AS
+SELECT 
+    active_app_during_visit as app_bundle_id,
+    COUNT(DISTINCT domain) as unique_domains,
+    COUNT(*) as total_visits,
+    SUM(web_duration_seconds) / 60.0 as total_web_minutes,
+    AVG(web_duration_seconds) as avg_visit_seconds
+FROM v_web_usage_with_active_app
+WHERE active_app_during_visit IS NOT NULL
+GROUP BY active_app_during_visit;
+
+-- Daily summary of app transition patterns
+CREATE OR REPLACE VIEW v_daily_transition_summary AS
+SELECT 
+    transition_date,
+    from_app,
+    to_app,
+    COUNT(*) as transition_count,
+    AVG(gap_seconds) as avg_gap_seconds,
+    COUNT(CASE WHEN transition_speed = 'instant' THEN 1 END) as instant_transitions,
+    COUNT(CASE WHEN transition_speed = 'immediate' THEN 1 END) as immediate_transitions
+FROM v_app_transitions
+GROUP BY transition_date, from_app, to_app;
+
+-- ============================================
+-- PATTERN DETECTION VIEWS
+-- ============================================
+
+-- Detect "research sessions" - rapid switches between coding apps and Safari
+CREATE OR REPLACE VIEW v_research_sessions AS
+WITH safari_returns AS (
+    SELECT 
+        t1.from_app as coding_app,
+        t1.transition_time as to_safari_time,
+        t2.transition_time as back_from_safari_time,
+        DATEPART('epoch', t2.transition_time - t1.transition_time) as safari_duration_seconds
+    FROM v_app_transitions t1
+    JOIN v_app_transitions t2 
+        ON t1.to_app = 'com.apple.Safari'
+        AND t2.from_app = 'com.apple.Safari'
+        AND t2.to_app = t1.from_app
+        AND t2.transition_time > t1.transition_time
+        AND t2.transition_time < t1.transition_time + TO_SECONDS(600.0) -- Within 10 minutes
+)
+SELECT 
+    coding_app,
+    to_safari_time,
+    back_from_safari_time,
+    safari_duration_seconds,
+    CASE 
+        WHEN safari_duration_seconds < 30 THEN 'quick_lookup'
+        WHEN safari_duration_seconds < 120 THEN 'short_research'
+        WHEN safari_duration_seconds < 300 THEN 'medium_research'
+        ELSE 'extended_research'
+    END as research_type
+FROM safari_returns;

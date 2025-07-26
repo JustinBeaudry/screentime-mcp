@@ -129,3 +129,49 @@ CASE WHEN ZENDDATE IS NOT NULL AND ZSTARTDATE IS NOT NULL
 - CREATE TABLE Z_PRIMARYKEY(Z_ENT BIGINT PRIMARY KEY, Z_NAME VARCHAR, Z_SUPER BIGINT, Z_MAX BIGINT);
 - CREATE TABLE Z_METADATA(Z_VERSION BIGINT PRIMARY KEY, Z_UUID VARCHAR, Z_PLIST BLOB);
 - CREATE TABLE Z_MODELCACHE(Z_CONTENT BLOB);
+
+
+
+-- ============================================
+-- USAGE EXAMPLES AND NOTES
+-- ============================================
+
+## Complex Analysis Views - Usage Examples
+
+### Find web browsing during VSCode usage:
+SELECT domain, COUNT(*) as visits, SUM(web_duration_seconds)/60 as minutes
+FROM v_web_usage_with_active_app
+WHERE active_app_during_visit = 'com.microsoft.VSCode'
+  AND usage_date >= CURRENT_DATE - INTERVAL 7 DAY
+GROUP BY domain
+ORDER BY visits DESC;
+
+### Analyze transition patterns from VSCode:
+SELECT 
+    to_app,
+    transition_speed,
+    COUNT(*) as transitions,
+    AVG(gap_seconds) as avg_gap
+FROM v_app_transitions
+WHERE from_app = 'com.microsoft.VSCode'
+  AND transition_date >= CURRENT_DATE - INTERVAL 7 DAY
+GROUP BY to_app, transition_speed
+ORDER BY transitions DESC;
+
+### Find research sessions:
+SELECT 
+    coding_app,
+    COUNT(*) as research_sessions,
+    AVG(safari_duration_seconds) as avg_duration,
+    SUM(safari_duration_seconds)/60 as total_minutes
+FROM v_research_sessions
+WHERE to_safari_time >= CURRENT_DATE - INTERVAL 7 DAY
+GROUP BY coding_app
+ORDER BY research_sessions DESC;
+
+## Notes on Temporal Analysis
+- The views handle overlapping sessions and timezone conversions
+- NULL active_app indicates web browsing outside any app session
+- Transition analysis requires ordered window functions
+- Research sessions track round-trip patterns to Safari
+- All column names match the base views (e.g., use start_time not web_start_time)
