@@ -52,9 +52,9 @@ Queries macOS Screen Time data (CoreDuet knowledge store) using DuckDB SQL diale
    ```
 
 ### Core Data Timestamp Format
-- Timestamps may be in Core Data format (seconds since 2001-01-01)
-- To convert: `datetime(timestamp + 978307200, 'unixepoch')`
-- Always check timestamp ranges before assuming format
+- Timestamps are stored in Core Data format (seconds since 2001-01-01)
+- To convert to standard timestamps: ADD INTERVAL '978307200 seconds'
+- Example: DATE(ZSTARTDATE + INTERVAL '978307200 seconds')
 
 ### Safe Query Patterns
 
@@ -128,14 +128,22 @@ ORDER BY visits DESC;
 - `/discoverability/signals`: Various user interaction signals
 - `/notification/usage`: Notification events
 
-## Error Prevention Tips
+# Key SQL Syntax Notes:
+- Use EXTRACT(HOUR FROM timestamp) instead of strftime for hour extraction
+- Use EXTRACT(EPOCH FROM (end - start)) for duration calculations
+- Use DATE(timestamp) for date extraction
+- JOIN syntax: JOIN table ON condition (not USING)
+- Case statements work well for conditional aggregations
+- HAVING clause filters after GROUP BY
+- Timestamps are in 1994 format (Core Data offset issue)
 
-1. **Always use proper DuckDB syntax** - no MySQL/SQLite specific functions
-2. **Test timestamp comparisons carefully** - use ORDER BY and LIMIT first
-3. **Handle NULLs explicitly** in duration calculations
-4. **Use CASE statements** for conditional logic
-5. **Cast types explicitly** when needed
-6. **Prefer INTERVAL arithmetic** over manual timestamp math
+## Error Prevention Tips
+- **Always use proper DuckDB syntax** - no MySQL/SQLite specific functions
+- **Test timestamp comparisons carefully** - use ORDER BY and LIMIT first
+- **Handle NULLs explicitly** in duration calculations
+- **Use CASE statements** for conditional logic
+- **Cast types explicitly** when needed
+- **Prefer INTERVAL arithmetic** over manual timestamp math
 
 ## Limitations
 - Read-only SELECT queries only
