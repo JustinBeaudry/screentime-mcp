@@ -18,9 +18,15 @@ func registerTools(mcpServer *mcp_server.MCPServer) error {
 		return fmt.Errorf("MCP server is nil")
 	}
 
+	// Description of the tool
+	var toolDesc = ScreentimeSqlToolDesc
+	toolDesc += "\n\n## Create Views Statements\n```sql\n"
+	toolDesc += db.DuckdbViewsMigration
+	toolDesc += "\n```\n"
+
 	// Register tools here
 	mcpServer.AddTool(mcp.NewTool("screentime_sql",
-		mcp.WithDescription(ScreentimeSqlToolDesc),
+		mcp.WithDescription(toolDesc),
 		mcp.WithString("sql",
 			mcp.Title("SQL statement to query"),
 			mcp.Required(),

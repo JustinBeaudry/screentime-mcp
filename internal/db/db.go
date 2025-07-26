@@ -22,6 +22,9 @@ var DuckdbUpMigration string
 //go:embed duckdb_safe.sql
 var DuckdbSafeMigration string
 
+//go:embed duckdb_views.sql
+var DuckdbViewsMigration string
+
 // MigrationInfo holds data to be injected by our migration template
 type MigrationInfo struct {
 	HomeDir string
@@ -43,7 +46,7 @@ func RunMigration(conn *sql.DB) error {
 		homeDir = "/Users/" + currentUser.Username
 	}
 
-	// Template the migration
+	// Template the Up migration
 	migrationTempl, err := template.New("migration").Parse(DuckdbUpMigration)
 	if err != nil {
 		return fmt.Errorf("failed to create template migration: %w", err)
@@ -53,15 +56,22 @@ func RunMigration(conn *sql.DB) error {
 		HomeDir: homeDir,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to template migration: %w", err)
+		return fmt.Errorf("failed to template up migration: %w", err)
 	}
 
-	// Execute the migration
+	// Execute the Up migration
 	_, err = conn.Exec(migrationBytes.String())
 	if err != nil {
-		return fmt.Errorf("failed to run migration: %w", err)
+		return fmt.Errorf("failed to run up migration: %w", err)
+	}
+
+	// Execute the Views migration
+	_, err = conn.Exec(DuckdbViewsMigration)
+	if err != nil {
+		return fmt.Errorf("failed to run views migration: %w", err)
 	}
 	return nil
+
 }
 
 // RunSafeMode locks the database down with the DuckdbSafeMigration.

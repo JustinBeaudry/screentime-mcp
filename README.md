@@ -30,6 +30,8 @@ Your Screen Time data is stored on your MacOS computer in a [SQLite database](ht
 
 Currently, this is sensitive data, so you must enable "Full Disk Permissions" for the host environment of this MCP server.   It runs on your computer, as it reads the local database file.
 
+The MCP Server exposes the following [Tool Description](./internal/mcp/screentime_sql.tooldesc.md) and [Generated SQL Views](./internal/db/duckdb_views.sql).
+
 ## Installation
 
 While we'd like to have pre-built binaries and Homebrew packages, we're having an issue with that right now.  So the preferred way to install is using `go install` or [building from source](#building):
