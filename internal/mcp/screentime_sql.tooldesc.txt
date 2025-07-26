@@ -3,6 +3,8 @@
 ## Overview
 Queries macOS Screen Time data (CoreDuet knowledge store) using DuckDB SQL dialect. Returns CSV results.
 
+The default Screen Time CoreDuet tables exist along with pre-built views with UNIX timestamps.
+
 ## When to Use
 - User asks about Mac app usage, screen time, or digital habits
 - Questions about time spent in specific apps or categories
@@ -12,47 +14,9 @@ Queries macOS Screen Time data (CoreDuet knowledge store) using DuckDB SQL diale
 
 ## Critical DuckDB SQL Syntax Requirements
 
-### Date/Time Handling
-**IMPORTANT**: This database uses DuckDB SQL dialect with specific requirements:
-
-1. **No `strftime()` with string literals**: 
-   ```sql
-   -- ❌ WRONG - causes binder error
-   WHERE ZSTARTDATE > (strftime('%s', 'now') - 978307200 - 7*24*3600)
-   
-   -- ✅ CORRECT - use current_date and INTERVAL
-   WHERE ZSTARTDATE >= current_date - INTERVAL '7 days'
-   ```
-
-2. **Explicit type casting required**:
-   ```sql
-   -- ❌ WRONG - cannot compare TIMESTAMP with INTEGER
-   WHERE ZSTARTDATE > 0
-   
-   -- ✅ CORRECT - cast or use proper timestamp comparison
-   WHERE ZSTARTDATE IS NOT NULL
-   WHERE ZSTARTDATE >= '1970-01-01'::TIMESTAMP
-   ```
-
-3. **Date arithmetic**:
-   ```sql
-   -- ✅ Use INTERVAL for date arithmetic
-   current_date - INTERVAL '14 days'
-   current_date - INTERVAL '1 week'
-   
-   -- ✅ Extract epoch seconds from intervals
-   extract(epoch from (ZENDDATE - ZSTARTDATE))
-   ```
-
-4. **Date formatting**:
-   ```sql
-   -- ✅ Use DATE() function or DATE_TRUNC()
-   DATE(ZSTARTDATE) as usage_date
-   DATE_TRUNC('day', ZSTARTDATE) as day
-   ```
 
 ### Core Data Timestamp Format
-- Timestamps are stored in Core Data format (seconds since 2001-01-01)
+- Timestamps in original tables are stored in Core Data format (seconds since 2001-01-01)
 - To convert to standard timestamps: ADD INTERVAL '978307200 seconds'
 - Example: DATE(ZSTARTDATE + INTERVAL '978307200 seconds')
 
@@ -75,36 +39,6 @@ CASE WHEN ZENDDATE IS NOT NULL AND ZSTARTDATE IS NOT NULL
      ELSE NULL END as duration_seconds
 ```
 
-#### App Usage Analysis
-```sql
--- Group by app bundle ID
-SELECT 
-    ZVALUESTRING as app_bundle_id,
-    COUNT(*) as usage_events,
-    AVG(CASE WHEN ZENDDATE IS NOT NULL AND ZSTARTDATE IS NOT NULL 
-             THEN extract(epoch from (ZENDDATE - ZSTARTDATE)) 
-             ELSE NULL END) as avg_duration_seconds
-FROM ZOBJECT 
-WHERE ZSTREAMNAME = '/app/usage'
-    AND ZVALUESTRING IS NOT NULL
-GROUP BY ZVALUESTRING
-ORDER BY usage_events DESC;
-```
-
-#### Web Domain Analysis
-```sql
--- Join with structured metadata for web domains
-SELECT 
-    sm.Z_DKDIGITALHEALTHMETADATAKEY__WEBDOMAIN as domain,
-    COUNT(*) as visits
-FROM ZOBJECT o
-JOIN ZSTRUCTUREDMETADATA sm ON o.ZSTRUCTUREDMETADATA = sm.Z_PK
-WHERE o.ZSTREAMNAME = '/app/webUsage' 
-    AND sm.Z_DKDIGITALHEALTHMETADATAKEY__WEBDOMAIN IS NOT NULL
-GROUP BY sm.Z_DKDIGITALHEALTHMETADATAKEY__WEBDOMAIN
-ORDER BY visits DESC;
-```
-
 ## Key Tables and Columns
 
 ### ZOBJECT (Main Events Table)
@@ -120,6 +54,32 @@ ORDER BY visits DESC;
 ### ZSTRUCTUREDMETADATA (Detailed Metadata)
 - `Z_DKDIGITALHEALTHMETADATAKEY__WEBDOMAIN`: Website domains
 - Many other metadata fields for different event types
+
+## Key Views Available
+
+### Core Views
+- `v_app_usage` - Main app usage data with corrected timestamps
+- `v_web_usage` - Web browsing data with domains and URLs
+- `v_notifications` - Notification events by app
+- `v_app_focus` - App focus events
+
+### Summary Views
+- `v_today_summary` - Today's app usage summary (sessions, minutes, avg duration)
+- `v_today_web_summary` - Today's web browsing summary
+- `v_daily_app_summary` - Daily summaries for all apps
+- `v_daily_focus_metrics` - Focus scores and metrics by day
+
+### Analysis Views
+- `v_app_switches` - App switching patterns with switch types
+- `v_focus_sessions` - Sessions longer than 5 minutes
+- `v_hourly_usage_pattern` - Usage patterns by hour
+- `v_app_session_patterns` - Work vs personal app identification
+
+### Convenience Views
+- `v_today_usage` - Detailed usage for today
+- `v_yesterday_usage` - Detailed usage for yesterday  
+- `v_week_usage` - Last 7 days of usage
+- `v_month_usage` - Last 30 days of usage
 
 ## Common Stream Names
 - `/app/usage`: App launch/usage events
