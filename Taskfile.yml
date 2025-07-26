@@ -33,7 +33,7 @@ tasks:
       - "*.go"
       - "internal/**/*.go"
       - "internal/**/*.sql"
-      - "internal/**/*.txt"
+      - "internal/**/*.md"
       - go.mod
       - go.sum
 
