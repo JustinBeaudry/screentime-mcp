@@ -48,3 +48,10 @@ tasks:
     cmds:
       - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null
       - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null
+
+  stdio-schema-test:
+    desc: 'Extracts the schema from the stdio server without error supression'
+    deps: [build]
+    cmds:
+      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp
+      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp
