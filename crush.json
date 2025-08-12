@@ -1,0 +1,20 @@
+{
+  "$schema": "https://charm.land/crush.json",
+  "mcp": {
+    "screentime_mcp": {
+      "type": "stdio",
+
+      "command": "/bin/bash",
+      "args": ["-c", "./bin/screentime-mcp 2>/dev/null"]
+    }
+  },
+  "permissions": {
+    "allowed_tools": [
+      "mcp_screentime_mcp_screentime_sql"
+    ]
+  },
+  "options": {
+    "debug": true,
+    "debug_lsp": true
+  }
+}
