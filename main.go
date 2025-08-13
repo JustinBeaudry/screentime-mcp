@@ -44,7 +44,7 @@ func main() {
 	pflag.BoolVarP(&config.LogJSON, "log-json", "j", false, "Log in JSON (default is plaintext)")
 	pflag.StringVarP(&config.MCPConfig.SSEHostPort, "sse-host", "", "", "host:port to listen to SSE connections")
 	pflag.BoolVarP(&config.MCPConfig.UseSSE, "sse", "", false, "Use SSE Transport (default is STDIO transport)")
-	pflag.BoolVarP(&config.Verbose, "verbose", "v", false, "Verbose logging")
+	pflag.BoolVarP(&config.MCPConfig.OneShot, "once", "o", false, "Exit after one tool call")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show help")
 	pflag.Parse()
 

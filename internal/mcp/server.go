@@ -3,10 +3,14 @@
 package mcp
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"os"
+	"time"
 
+	"github.com/mark3labs/mcp-go/mcp"
 	mcp_server "github.com/mark3labs/mcp-go/server"
 )
 
@@ -19,6 +23,8 @@ const (
 type Config struct {
 	Name    string // Service Name
 	Version string // Service Version
+
+	OneShot bool // Only execute one toolcall, then exit with error
 
 	UseSSE      bool   // Use SSE Transport instead of STDIO
 	SSEHostPort string // HostPort to use for SSE
@@ -45,8 +51,23 @@ func RunRouter(config Config, logger *slog.Logger) error {
 		return fmt.Errorf("DuckDB connection is nil")
 	}
 
+	hooks := &mcp_server.Hooks{}
+	if config.OneShot {
+		hooks.AddAfterCallTool(
+			func(ctx context.Context, id any, message *mcp.CallToolRequest, result *mcp.CallToolResult) {
+				logger.Info("one shot exit in one second")
+				go func() {
+					time.Sleep(1 * time.Second)
+					os.Exit(1)
+				}()
+			},
+		)
+	}
+
 	// Create the MCP Server and register Tools on it
-	mcpServer := mcp_server.NewMCPServer(config.Name, config.Version)
+	mcpServer := mcp_server.NewMCPServer(
+		config.Name, config.Version,
+		mcp_server.WithHooks(hooks))
 
 	if err := registerTools(mcpServer); err != nil {
 		return err
