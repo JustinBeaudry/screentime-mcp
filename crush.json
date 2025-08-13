@@ -4,7 +4,7 @@
     "screentime_mcp": {
       "type": "stdio",
       "command": "./bin/screentime-mcp",
-      "args": ["--once"]
+      "args": ["--dev"]
     }
   },
   "permissions": {

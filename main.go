@@ -28,6 +28,7 @@ type Config struct {
 
 	LogJSON bool // Log in JSON format instead of text
 	Verbose bool // Verbose logging
+	DevMode bool // Enable dev mode
 
 	MCPConfig mcp.Config // MCP config
 }
@@ -42,6 +43,7 @@ func main() {
 	pflag.StringVarP(&config.DuckDBFile, "db", "", ":memory:", "DuckDB data file to use, use ':memory:' for in-memory. Default is ':memory:")
 	pflag.StringVarP(&logFilename, "log-file", "l", "", "Log file destination (or MCP_LOG_FILE envvar). Default is stderr")
 	pflag.BoolVarP(&config.LogJSON, "log-json", "j", false, "Log in JSON (default is plaintext)")
+	pflag.BoolVarP(&config.DevMode, "dev", "d", false, "Activate dev mode")
 	pflag.StringVarP(&config.MCPConfig.SSEHostPort, "sse-host", "", "", "host:port to listen to SSE connections")
 	pflag.BoolVarP(&config.MCPConfig.UseSSE, "sse", "", false, "Use SSE Transport (default is STDIO transport)")
 	pflag.BoolVarP(&config.MCPConfig.OneShot, "once", "o", false, "Exit after one tool call")
@@ -108,10 +110,13 @@ func main() {
 
 	// Run our migration.
 	// This will load the Screen Time SQLite database from the user's home directory.
-	err = db.RunMigration(duckdbConn)
-	if err != nil {
-		logger.Error("failed to run duckdb migration", "error", err.Error())
-		os.Exit(1)
+	migrationErr := db.RunMigration(duckdbConn)
+	if migrationErr != nil {
+		if !config.DevMode {
+			logger.Error("failed to run duckdb migration", "error", migrationErr.Error())
+			os.Exit(1)
+		}
+		logger.Warn("failed to run duckdb migration, but in dev mode.  Calls will return this error.", "error", migrationErr.Error())
 	}
 
 	// Let's lock it down even more!
@@ -122,7 +127,7 @@ func main() {
 	}
 
 	// Run our MCP server
-	mcp.SetDatabase(duckdbConn)
+	mcp.SetDatabase(duckdbConn, migrationErr.Error())
 	err = mcp.RunRouter(config.MCPConfig, logger)
 	if err != nil {
 		logger.Error("MCP router error", "error", err.Error())

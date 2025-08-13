@@ -33,15 +33,17 @@ type Config struct {
 // Our MCP Tools' DuckDB connection, set during RegisterMCP
 // We resort to module-global variable rather than setting up closures
 var duckdbConn *sql.DB
+var duckdbMigrationError string
 
 //////////////////////////////////////////////////////////////////////////////
 
 // SetDatabase sets the DuckDB connection for the MCP server.
-func SetDatabase(conn *sql.DB) error {
+func SetDatabase(conn *sql.DB, migrationError string) error {
 	if conn == nil {
 		return fmt.Errorf("DuckDB connection is nil")
 	}
 	duckdbConn = conn
+	duckdbMigrationError = migrationError
 	return nil
 }
 

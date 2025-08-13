@@ -45,6 +45,11 @@ var ScreentimeSqlToolDesc string
 
 // QueryToolHandler handles the query tool request, taking the SQL query from the request parameters and marshalling the results to CSV.
 func QueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// If we have a startup migration error, we return that error
+	if duckdbMigrationError != "" {
+		return nil, fmt.Errorf("startup migration error: %s", duckdbMigrationError)
+	}
+
 	// Extract the parameter
 	if duckdbConn == nil {
 		return nil, fmt.Errorf("No database")
