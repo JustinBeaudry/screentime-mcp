@@ -2,7 +2,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -96,39 +95,27 @@ func main() {
 
 	logger.Info("screentime-mcp")
 
-	// Load our DuckDB in read-only mode for security
+	// Setup our database
 	filename := config.DuckDBFile
 	if filename != ":memory:" {
 		filename += "?access_mode=read_only"
 	}
-	duckdbConn, err := sql.Open("duckdb", filename)
-	if err != nil {
-		logger.Error("failed to open duckdb read-only", "error", err.Error())
-		os.Exit(1)
-	}
-	defer duckdbConn.Close()
+	db.SetDuckDBFilename(filename)
+	db.SetDevMode(config.DevMode)
 
-	// Run our migration.
-	// This will load the Screen Time SQLite database from the user's home directory.
-	migrationErr := db.RunMigration(duckdbConn)
-	if migrationErr != nil {
+	// Open a DB to dry-run it for later
+	if duckdbConn, err := db.Open(filename); err != nil {
 		if !config.DevMode {
-			logger.Error("failed to run duckdb migration", "error", migrationErr.Error())
+			logger.Error("Failed to open database", "error", err.Error())
 			os.Exit(1)
 		}
-		logger.Warn("failed to run duckdb migration, but in dev mode.  Calls will return this error.", "error", migrationErr.Error())
-	}
-
-	// Let's lock it down even more!
-	err = db.RunSafeMode(duckdbConn)
-	if err != nil {
-		logger.Error("failed to run safe mode", "error", err.Error())
-		os.Exit(1)
+	} else {
+		duckdbConn.Close()
+		duckdbConn = nil
 	}
 
 	// Run our MCP server
-	mcp.SetDatabase(duckdbConn, migrationErr.Error())
-	err = mcp.RunRouter(config.MCPConfig, logger)
+	err := mcp.RunRouter(config.MCPConfig, logger)
 	if err != nil {
 		logger.Error("MCP router error", "error", err.Error())
 		os.Exit(1)

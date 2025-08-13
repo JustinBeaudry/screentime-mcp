@@ -4,7 +4,6 @@ package mcp
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,29 +29,10 @@ type Config struct {
 	SSEHostPort string // HostPort to use for SSE
 }
 
-// Our MCP Tools' DuckDB connection, set during RegisterMCP
-// We resort to module-global variable rather than setting up closures
-var duckdbConn *sql.DB
-var duckdbMigrationError string
-
 //////////////////////////////////////////////////////////////////////////////
-
-// SetDatabase sets the DuckDB connection for the MCP server.
-func SetDatabase(conn *sql.DB, migrationError string) error {
-	if conn == nil {
-		return fmt.Errorf("DuckDB connection is nil")
-	}
-	duckdbConn = conn
-	duckdbMigrationError = migrationError
-	return nil
-}
 
 // RunRouter runs the MCP server with the given configuration and logger.
 func RunRouter(config Config, logger *slog.Logger) error {
-	if duckdbConn == nil {
-		return fmt.Errorf("DuckDB connection is nil")
-	}
-
 	hooks := &mcp_server.Hooks{}
 	if config.OneShot {
 		hooks.AddAfterCallTool(
