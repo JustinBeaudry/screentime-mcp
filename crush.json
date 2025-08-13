@@ -3,9 +3,8 @@
   "mcp": {
     "screentime_mcp": {
       "type": "stdio",
-
-      "command": "/bin/bash",
-      "args": ["-c", "./bin/screentime-mcp 2>/dev/null"]
+      "command": "./bin/screentime-mcp",
+      "args": ["--once"]
     }
   },
   "permissions": {
