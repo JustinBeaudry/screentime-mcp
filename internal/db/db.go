@@ -12,14 +12,27 @@ import (
 	"os/user"
 	"strings"
 	"text/template"
+	"time"
 
 	// Import the DuckDB driver
 	_ "github.com/marcboeker/go-duckdb/v2"
 )
 
+// TimezoneInfo represents timezone information for the database
+type TimezoneInfo struct {
+	Timestamp        int64  `json:"timestamp"`
+	Location         string `json:"location"`
+	Timezone         string `json:"timezone"`
+	UTCOffsetSeconds int    `json:"offset"`
+	IsDST            bool   `json:"is_dst"`
+	IsWeekend        bool   `json:"is_weekend"`
+	DayOfWeek        int    `json:"day_of_week"`
+}
+
 // MigrationInfo holds data to be injected by our migration template
 type MigrationInfo struct {
-	HomeDir string
+	HomeDir      string
+	TimezoneInfo TimezoneInfo
 }
 
 //go:embed duckdb_up.sql
@@ -143,6 +156,24 @@ func RunMigration(conn *sql.DB) error {
 		homeDir = "/Users/" + currentUser.Username
 	}
 
+	// Get timezone info
+	now := time.Now()
+	zoneName, offset := now.Zone()
+	location := now.Location()
+	isDST := now.IsDST()
+	dayOfWeek := int(now.Weekday())
+	isWeekend := dayOfWeek == 0 || dayOfWeek == 6
+
+	timezoneInfo := TimezoneInfo{
+		Timestamp:        now.Unix(),
+		Location:         location.String(),
+		Timezone:         zoneName,
+		UTCOffsetSeconds: offset,
+		IsDST:            isDST,
+		IsWeekend:        isWeekend,
+		DayOfWeek:        dayOfWeek,
+	}
+
 	// Template the Up migration
 	migrationTempl, err := template.New("migration").Parse(GetDuckdbUpMigrationEmbed())
 	if err != nil {
@@ -150,7 +181,8 @@ func RunMigration(conn *sql.DB) error {
 	}
 	var migrationBytes bytes.Buffer
 	err = migrationTempl.Execute(&migrationBytes, MigrationInfo{
-		HomeDir: homeDir,
+		HomeDir:      homeDir,
+		TimezoneInfo: timezoneInfo,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to template up migration: %w", err)
