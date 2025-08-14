@@ -139,6 +139,15 @@ ORDER BY switch_count DESC;
 - `/app/install` - App installation/removal events
 - `/discoverability/signals` - Various user interaction signals
 
+## User Timezone
+ - `timestamp` - UNIX Time when the timezone was recorded
+ - `location` - IANA Location
+ - `timezone` - Location information
+ - `utc_offset_seconds` - seconds adjustment from UTC
+ - `is_dst` - True if daylight savings is active
+ - `is_weekend` - True if the timestamp is a weekend
+ - `day_of_week` - True if the timestamp is a day of the week
+
 ## Important: Timestamp Handling
 
 Apple Core Data stores timestamps as seconds since 2001-01-01 00:00:00 UTC (not Unix epoch). Always add 31 years:

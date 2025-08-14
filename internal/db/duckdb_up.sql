@@ -11,8 +11,8 @@ ATTACH '{{ .HomeDir }}/Library/Application Support/Knowledge/knowledgeC.db' (TYP
 USE knowledgeC;
 
 -- Create timezone information table for MCP client use
-CREATE TABLE IF NOT EXISTS timezone_info (
-    timestamp_unix BIGINT,
+CREATE TABLE IF NOT EXISTS user_timezone (
+    timestamp TIMESTAMP,
     location VARCHAR,
     timezone VARCHAR,
     utc_offset_seconds INTEGER,
@@ -20,9 +20,10 @@ CREATE TABLE IF NOT EXISTS timezone_info (
     is_weekend BOOLEAN,
     day_of_week INTEGER
 );
-
+-- Ensure it gets a single entry
+TRUNCATE TABLE user_timezone;
 -- Insert current timezone information
-INSERT INTO timezone_info VALUES (
+INSERT INTO user_timezone VALUES (
     {{ .TimezoneInfo.Timestamp }},
     '{{ .TimezoneInfo.Location }}',
     '{{ .TimezoneInfo.Timezone }}',
