@@ -21,7 +21,7 @@ func registerTools(mcpServer *mcp_server.MCPServer) error {
 	// Description of the tool
 	var toolDesc = ScreentimeSqlToolDesc
 	toolDesc += "\n\n## Create Views Statements\n```sql\n"
-	toolDesc += db.DuckdbViewsMigration
+	toolDesc += db.GetDuckdbViewsMigration()
 	toolDesc += "\n```\n"
 
 	// Register tools here
@@ -45,10 +45,17 @@ var ScreentimeSqlToolDesc string
 
 // QueryToolHandler handles the query tool request, taking the SQL query from the request parameters and marshalling the results to CSV.
 func QueryToolHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Extract the parameter
+	// Get the DuckDB connection
+	// if there is a migration error or something else, return that error
+	duckdbConn, err := db.GetDuckDBConnection()
+	if err != nil {
+		return nil, err
+	}
 	if duckdbConn == nil {
 		return nil, fmt.Errorf("No database")
 	}
+
+	// Extract the parameter
 	queryStr, err := request.RequireString("sql")
 	if err != nil {
 		return nil, fmt.Errorf("sql must be set: %w", err)

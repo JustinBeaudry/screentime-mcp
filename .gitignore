@@ -4,3 +4,9 @@
 .DS_Store
 bin/
 dist/
+.crush/
+
+screentime-mcp
+
+# just in case we copy it for debugging!
+knowledgeC.db 

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
@@ -28,6 +27,7 @@ type Config struct {
 
 	LogJSON bool // Log in JSON format instead of text
 	Verbose bool // Verbose logging
+	DevMode bool // Enable dev mode
 
 	MCPConfig mcp.Config // MCP config
 }
@@ -42,9 +42,11 @@ func main() {
 	pflag.StringVarP(&config.DuckDBFile, "db", "", ":memory:", "DuckDB data file to use, use ':memory:' for in-memory. Default is ':memory:")
 	pflag.StringVarP(&logFilename, "log-file", "l", "", "Log file destination (or MCP_LOG_FILE envvar). Default is stderr")
 	pflag.BoolVarP(&config.LogJSON, "log-json", "j", false, "Log in JSON (default is plaintext)")
+	pflag.BoolVarP(&config.Verbose, "verbose", "v", false, "Verbose logging")
+	pflag.BoolVarP(&config.DevMode, "dev", "d", false, "Activate dev mode")
 	pflag.StringVarP(&config.MCPConfig.SSEHostPort, "sse-host", "", "", "host:port to listen to SSE connections")
 	pflag.BoolVarP(&config.MCPConfig.UseSSE, "sse", "", false, "Use SSE Transport (default is STDIO transport)")
-	pflag.BoolVarP(&config.Verbose, "verbose", "v", false, "Verbose logging")
+	pflag.BoolVarP(&config.MCPConfig.OneShot, "once", "o", false, "Exit after one tool call")
 	pflag.BoolVarP(&showHelp, "help", "h", false, "Show help")
 	pflag.Parse()
 
@@ -94,36 +96,27 @@ func main() {
 
 	logger.Info("screentime-mcp")
 
-	// Load our DuckDB in read-only mode for security
+	// Setup our database
 	filename := config.DuckDBFile
 	if filename != ":memory:" {
 		filename += "?access_mode=read_only"
 	}
-	duckdbConn, err := sql.Open("duckdb", filename)
-	if err != nil {
-		logger.Error("failed to open duckdb read-only", "error", err.Error())
-		os.Exit(1)
-	}
-	defer duckdbConn.Close()
+	db.SetDuckDBFilename(filename)
+	db.SetDevMode(config.DevMode)
 
-	// Run our migration.
-	// This will load the Screen Time SQLite database from the user's home directory.
-	err = db.RunMigration(duckdbConn)
-	if err != nil {
-		logger.Error("failed to run duckdb migration", "error", err.Error())
-		os.Exit(1)
-	}
-
-	// Let's lock it down even more!
-	err = db.RunSafeMode(duckdbConn)
-	if err != nil {
-		logger.Error("failed to run safe mode", "error", err.Error())
-		os.Exit(1)
+	// Open a DB to dry-run it for later
+	if duckdbConn, err := db.Open(filename); err != nil {
+		if !config.DevMode {
+			logger.Error("Failed to open database", "error", err.Error())
+			os.Exit(1)
+		}
+	} else {
+		duckdbConn.Close()
+		duckdbConn = nil
 	}
 
 	// Run our MCP server
-	mcp.SetDatabase(duckdbConn)
-	err = mcp.RunRouter(config.MCPConfig, logger)
+	err := mcp.RunRouter(config.MCPConfig, logger)
 	if err != nil {
 		logger.Error("MCP router error", "error", err.Error())
 		os.Exit(1)
