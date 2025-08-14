@@ -42,6 +42,7 @@ func main() {
 	pflag.StringVarP(&config.DuckDBFile, "db", "", ":memory:", "DuckDB data file to use, use ':memory:' for in-memory. Default is ':memory:")
 	pflag.StringVarP(&logFilename, "log-file", "l", "", "Log file destination (or MCP_LOG_FILE envvar). Default is stderr")
 	pflag.BoolVarP(&config.LogJSON, "log-json", "j", false, "Log in JSON (default is plaintext)")
+	pflag.BoolVarP(&config.Verbose, "verbose", "v", false, "Verbose logging")
 	pflag.BoolVarP(&config.DevMode, "dev", "d", false, "Activate dev mode")
 	pflag.StringVarP(&config.MCPConfig.SSEHostPort, "sse-host", "", "", "host:port to listen to SSE connections")
 	pflag.BoolVarP(&config.MCPConfig.UseSSE, "sse", "", false, "Use SSE Transport (default is STDIO transport)")

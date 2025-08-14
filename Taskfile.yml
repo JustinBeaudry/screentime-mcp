@@ -46,12 +46,18 @@ tasks:
     desc: 'Extracts the schema from the stdio server'
     deps: [build]
     cmds:
-      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null
-      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp 2>/dev/null
+      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp {{.CLI_ARGS}} 2>/dev/null
+      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp {{.CLI_ARGS}} 2>/dev/null
 
   stdio-schema-test:
     desc: 'Extracts the schema from the stdio server without error supression'
     deps: [build]
     cmds:
-      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp
-      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp
+      - echo '{"method":"tools/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp {{.CLI_ARGS}}
+      - echo '{"method":"resources/list","params":{},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp {{.CLI_ARGS}}
+
+  stdio-call-test:
+    desc: 'Makes a STDIO tool call request'
+    deps: [build]
+    cmds:
+      - echo '{"method":"tools/call","params":{"name":"screentime_sql", "arguments":{"sql":"SELECT 420;"}},"jsonrpc":"2.0","id":1}' | ./bin/screentime-mcp {{.CLI_ARGS}}
