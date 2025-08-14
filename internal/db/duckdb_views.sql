@@ -128,7 +128,7 @@ SELECT
     total_minutes,
     total_hours,
     focus_sessions,
-    ROUND(100.0 * total_minutes / SUM(total_minutes) OVER (), 1) as percentage_of_day
+    ROUND(100.0 * total_minutes / NULLIF(SUM(total_minutes) OVER (), 0), 1) as percentage_of_day
 FROM v_daily_app_summary
 WHERE usage_date = CURRENT_DATE
 ORDER BY total_minutes DESC;
@@ -247,7 +247,7 @@ SELECT
     ROUND(SUM(CASE WHEN category IN ('Development', 'Productivity', 'Creative') THEN total_minutes ELSE 0 END), 1) as productive_minutes,
     ROUND(SUM(CASE WHEN category NOT IN ('Development', 'Productivity', 'Creative') THEN total_minutes ELSE 0 END), 1) as non_productive_minutes,
     ROUND(SUM(total_minutes), 1) as total_minutes,
-    ROUND(100.0 * SUM(CASE WHEN category IN ('Development', 'Productivity', 'Creative') THEN total_minutes ELSE 0 END) / SUM(total_minutes), 1) as productivity_percentage
+    ROUND(100.0 * SUM(CASE WHEN category IN ('Development', 'Productivity', 'Creative') THEN total_minutes ELSE 0 END) / NULLIF(SUM(total_minutes), 0), 1) as productivity_percentage
 FROM v_category_usage_summary
 GROUP BY usage_date
 ORDER BY usage_date DESC;
@@ -584,7 +584,7 @@ SELECT
         WHEN avg_daily_sessions >= 5 AND avg_session_duration < 10 THEN 'low_distraction'
         ELSE 'focused_usage'
     END as distraction_level,
-    ROUND(total_minutes / total_sessions, 1) as overall_avg_duration
+    ROUND(total_minutes / NULLIF(total_sessions, 0), 1) as overall_avg_duration
 FROM weekly_aggregates
 WHERE total_sessions >= 5
 ORDER BY avg_daily_sessions DESC, avg_session_duration ASC;
@@ -683,12 +683,197 @@ SELECT
     ROUND(avg_session_before_switch, 1) as avg_session_before_switch,
     interrupted_sessions,
     unique_apps_used,
-    ROUND(100.0 * interrupted_sessions / total_switches, 1) as interruption_rate_percent,
-    ROUND(total_switches * 1.0 / unique_apps_used, 1) as switches_per_app,
+    ROUND(100.0 * interrupted_sessions / NULLIF(total_switches, 0), 1) as interruption_rate_percent,
+    ROUND(total_switches * 1.0 / NULLIF(unique_apps_used, 0), 1) as switches_per_app,
     CASE 
-        WHEN rapid_switches >= 10 OR (100.0 * interrupted_sessions / total_switches) >= 50 THEN 'high_switching_cost'
-        WHEN rapid_switches >= 5 OR (100.0 * interrupted_sessions / total_switches) >= 30 THEN 'moderate_switching_cost'
+        WHEN rapid_switches >= 10 OR (100.0 * interrupted_sessions / NULLIF(total_switches, 0)) >= 50 THEN 'high_switching_cost'
+        WHEN rapid_switches >= 5 OR (100.0 * interrupted_sessions / NULLIF(total_switches, 0)) >= 30 THEN 'moderate_switching_cost'
         ELSE 'low_switching_cost'
     END as switching_cost_level
 FROM daily_switching_stats
 ORDER BY usage_date DESC;
+
+-- Enhanced Context Switching Cost: Detailed per-hour analysis
+-- TEMPORARILY COMMENTED OUT DUE TO SYNTAX ERROR
+/*
+CREATE OR REPLACE VIEW v_context_switching_cost AS
+WITH app_switches AS (
+    SELECT 
+        DATE(ZSTARTDATE + INTERVAL '31 years') as switch_date,
+        EXTRACT(HOUR FROM (ZSTARTDATE + INTERVAL '31 years')) as hour_of_day,
+        ZVALUESTRING as from_app,
+        LEAD(ZVALUESTRING, 1) OVER (PARTITION BY DATE(ZSTARTDATE + INTERVAL '31 years') ORDER BY ZSTARTDATE) as to_app,
+        ZSTARTDATE + INTERVAL '31 years' as switch_time,
+        LEAD(ZSTARTDATE + INTERVAL '31 years', 1) OVER (PARTITION BY DATE(ZSTARTDATE + INTERVAL '31 years') ORDER BY ZSTARTDATE) as next_switch_time,
+        (EXTRACT(EPOCH FROM ZENDDATE) - EXTRACT(EPOCH FROM ZSTARTDATE)) / 60.0 as session_duration_minutes
+    FROM ZOBJECT 
+    WHERE ZSTREAMNAME = '/app/usage' 
+      AND ZVALUESTRING IS NOT NULL
+      AND DATE(ZSTARTDATE + INTERVAL '31 years') >= CURRENT_DATE - INTERVAL '30 days'
+),
+hourly_stats AS (
+    SELECT 
+        switch_date,
+        hour_of_day,
+        COUNT(*) as switches_in_hour,
+        COUNT(DISTINCT from_app) as unique_apps_in_hour,
+        ROUND(AVG(session_duration_minutes), 2) as avg_session_duration,
+        ROUND(MIN(session_duration_minutes), 2) as shortest_session,
+        COUNT(CASE WHEN session_duration_minutes < 1 THEN 1 ELSE NULL END) as micro_sessions,
+        COUNT(CASE WHEN session_duration_minutes < 5 THEN 1 ELSE NULL END) as short_sessions,
+        ROUND(60.0 / NULLIF(COUNT(*), 0), 2) as minutes_between_switches
+    FROM app_switches
+    WHERE from_app != to_app OR to_app IS NULL
+    GROUP BY switch_date, hour_of_day
+)
+SELECT 
+    switch_date,
+    hour_of_day,
+    switches_in_hour,
+    unique_apps_in_hour,
+    avg_session_duration,
+    shortest_session,
+    micro_sessions,
+    short_sessions,
+    minutes_between_switches,
+    ROUND(100.0 * micro_sessions / NULLIF(switches_in_hour, 0), 1) as micro_session_percent,
+    CASE 
+        WHEN switches_in_hour >= 30 THEN 'extreme_switching'
+        WHEN switches_in_hour >= 20 THEN 'high_switching'
+        WHEN switches_in_hour >= 10 THEN 'moderate_switching'
+        ELSE 'low_switching'
+    END as switching_intensity,
+    ROUND(switches_in_hour * (1.0 - avg_session_duration / 10.0), 1) as context_switch_cost_score
+FROM hourly_stats
+ORDER BY switch_date DESC, hour_of_day;
+*/
+
+-- Work Fragmentation Analysis: How broken up is your work?
+-- TEMPORARILY COMMENTED OUT DUE TO SYNTAX ERROR
+/*
+CREATE OR REPLACE VIEW v_work_fragmentation AS
+WITH work_apps AS (
+    SELECT DISTINCT app_bundle_id
+    FROM v_app_categories 
+    WHERE category IN ('Development', 'Productivity', 'AI/ML')
+),
+work_sessions AS (
+    SELECT 
+        DATE(zo.ZSTARTDATE + INTERVAL '31 years') as work_date,
+        EXTRACT(HOUR FROM (zo.ZSTARTDATE + INTERVAL '31 years')) as hour_of_day,
+        zo.ZVALUESTRING as app_bundle_id,
+        zo.ZSTARTDATE + INTERVAL '31 years' as start_time,
+        zo.ZENDDATE + INTERVAL '31 years' as end_time,
+        (EXTRACT(EPOCH FROM zo.ZENDDATE) - EXTRACT(EPOCH FROM zo.ZSTARTDATE)) / 60.0 as duration_minutes
+    FROM ZOBJECT zo
+    JOIN work_apps wa ON zo.ZVALUESTRING = wa.app_bundle_id
+    WHERE zo.ZSTREAMNAME = '/app/usage'
+      AND DATE(zo.ZSTARTDATE + INTERVAL '31 years') >= CURRENT_DATE - INTERVAL '30 days'
+),
+hourly_fragmentation AS (
+    SELECT 
+        work_date,
+        hour_of_day,
+        COUNT(*) as work_sessions,
+        ROUND(SUM(duration_minutes), 1) as total_work_minutes,
+        ROUND(AVG(duration_minutes), 2) as avg_session_duration,
+        ROUND(STDDEV(duration_minutes), 2) as session_duration_variance,
+        MAX(duration_minutes) as longest_session,
+        MIN(duration_minutes) as shortest_session,
+        COUNT(CASE WHEN duration_minutes >= 25 THEN 1 ELSE NULL END) as pomodoro_sessions,
+        COUNT(CASE WHEN duration_minutes < 5 THEN 1 ELSE NULL END) as fragment_sessions
+    FROM work_sessions
+    GROUP BY work_date, hour_of_day
+)
+SELECT 
+    work_date,
+    hour_of_day,
+    work_sessions,
+    total_work_minutes,
+    avg_session_duration,
+    session_duration_variance,
+    longest_session,
+    shortest_session,
+    pomodoro_sessions,
+    fragment_sessions,
+    ROUND(100.0 * fragment_sessions / NULLIF(work_sessions, 0), 1) as fragmentation_percent,
+    CASE 
+        WHEN avg_session_duration >= 20 AND session_duration_variance < 10 THEN 'sustained_focus'
+        WHEN avg_session_duration >= 10 AND fragment_sessions < 3 THEN 'moderate_focus'
+        WHEN fragment_sessions >= work_sessions * 0.5 THEN 'highly_fragmented'
+        ELSE 'mixed_pattern'
+    END as fragmentation_type,
+    ROUND(total_work_minutes * (avg_session_duration / 25.0), 1) as effective_work_score
+FROM hourly_fragmentation
+WHERE total_work_minutes > 0
+ORDER BY work_date DESC, hour_of_day;
+*/
+
+-- Flow State Detection: Identify periods of deep, uninterrupted work
+-- TEMPORARILY COMMENTED OUT - TO BE FIXED
+/*
+CREATE OR REPLACE VIEW v_flow_state_detection AS
+WITH productive_apps AS (
+    SELECT DISTINCT app_bundle_id
+    FROM v_app_categories 
+    WHERE category IN ('Development', 'Productivity', 'AI/ML', 'Creative')
+),
+potential_flow_sessions AS (
+    SELECT 
+        DATE(zo.ZSTARTDATE + INTERVAL '31 years') as flow_date,
+        zo.ZVALUESTRING as app_bundle_id,
+        zo.ZSTARTDATE + INTERVAL '31 years' as start_time,
+        zo.ZENDDATE + INTERVAL '31 years' as end_time,
+        (EXTRACT(EPOCH FROM zo.ZENDDATE) - EXTRACT(EPOCH FROM zo.ZSTARTDATE)) / 60.0 as duration_minutes,
+        EXTRACT(HOUR FROM (zo.ZSTARTDATE + INTERVAL '31 years')) as start_hour,
+        EXTRACT(DOW FROM (zo.ZSTARTDATE + INTERVAL '31 years')) as day_of_week
+    FROM ZOBJECT zo
+    JOIN productive_apps pa ON zo.ZVALUESTRING = pa.app_bundle_id
+    WHERE zo.ZSTREAMNAME = '/app/usage'
+      AND (EXTRACT(EPOCH FROM zo.ZENDDATE) - EXTRACT(EPOCH FROM zo.ZSTARTDATE)) >= 1500  -- 25+ minutes
+      AND DATE(zo.ZSTARTDATE + INTERVAL '31 years') >= CURRENT_DATE - INTERVAL '30 days'
+),
+flow_analysis AS (
+    SELECT 
+        flow_date,
+        app_bundle_id,
+        start_time,
+        end_time,
+        duration_minutes,
+        start_hour,
+        day_of_week,
+        CASE 
+            WHEN duration_minutes >= 90 THEN 'deep_flow'
+            WHEN duration_minutes >= 45 THEN 'moderate_flow'
+            ELSE 'light_flow'
+        END as flow_intensity,
+        CASE 
+            WHEN start_hour BETWEEN 5 AND 11 THEN 'morning'
+            WHEN start_hour BETWEEN 12 AND 16 THEN 'afternoon'
+            WHEN start_hour BETWEEN 17 AND 21 THEN 'evening'
+            ELSE 'night'
+        END as time_of_day
+    FROM potential_flow_sessions
+)
+SELECT 
+    flow_date,
+    app_bundle_id,
+    start_time,
+    end_time,
+    ROUND(duration_minutes, 1) as duration_minutes,
+    flow_intensity,
+    time_of_day,
+    CASE day_of_week
+        WHEN 0 THEN 'Sunday'
+        WHEN 1 THEN 'Monday'
+        WHEN 2 THEN 'Tuesday'
+        WHEN 3 THEN 'Wednesday'
+        WHEN 4 THEN 'Thursday'
+        WHEN 5 THEN 'Friday'
+        WHEN 6 THEN 'Saturday'
+    END as day_name,
+    start_hour,
+    ROUND(duration_minutes / 25.0, 1) as pomodoro_equivalents
+FROM flow_analysis
+ORDER BY flow_date DESC, duration_minutes DESC;
+*/
