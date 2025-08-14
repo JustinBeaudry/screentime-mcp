@@ -1,0 +1,1 @@
+{"method":"tools/call","params":{"name":"screentime_sql", "arguments":{"sql":"SELECT * FROM v_app_usage LIMIT 3"}},"jsonrpc":"2.0","id":1}

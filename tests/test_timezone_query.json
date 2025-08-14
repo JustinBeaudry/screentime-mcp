@@ -1,0 +1,1 @@
+{"method":"tools/call","params":{"name":"screentime_sql", "arguments":{"sql":"SELECT * FROM timezone_info;"}},"jsonrpc":"2.0","id":1}
