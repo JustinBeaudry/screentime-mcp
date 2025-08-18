@@ -92,15 +92,21 @@ Here is the command-line help:
 usage: ./bin/screentime-mcp [opts]
 
       --db string         DuckDB data file to use, use ':memory:' for in-memory. Default is ':memory: (default ":memory:")
+  -d, --dev               Activate dev mode
   -h, --help              Show help
   -l, --log-file string   Log file destination (or MCP_LOG_FILE envvar). Default is stderr
   -j, --log-json          Log in JSON (default is plaintext)
+  -o, --once              Exit after one tool call
       --sse               Use SSE Transport (default is STDIO transport)
       --sse-host string   host:port to listen to SSE connections
   -v, --verbose           Verbose logging
 ```
 
 To see what the MCP schema looks like, you can run `task stdio-schema | jq` ([link](./Taskfile.yml#L45)).
+
+The `--dev` mode will reload the pre-flight migration file ([`./internal/db/duckdb_views.sql`](./internal/db/duckdb_views.sql)) into a new DuckDB database on each tool call.  This causes the MCP server to lose any DB state and try out a fresh migration without needing a re-build.  It will also allow the MCP server to start with a failed migration.
+
+The `--once` flag will only allow an MCP server to hadle one tool call. It literally `os.Exit` the MCP server after a short timeout.  This is also useful for development.
 
 ## Building
 
