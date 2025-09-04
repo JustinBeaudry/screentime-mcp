@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/AgentDank/screentime-mcp/internal/db"
-	"github.com/AgentDank/screentime-mcp/internal/mcp"
+	"github.com/JustinBeaudry/screentime-mcp/internal/db"
+	"github.com/JustinBeaudry/screentime-mcp/internal/mcp"
 	"github.com/spf13/pflag"
 )
 
