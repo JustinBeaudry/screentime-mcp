@@ -1,4 +1,4 @@
-module github.com/AgentDank/screentime-mcp
+module github.com/JustinBeaudry/screentime-mcp
 
 go 1.24.1
 
